@@ -20,6 +20,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     use Authenticatable;
     use Authorizable, CanResetPassword, MustVerifyEmail;
     use SoftDeletes;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -38,6 +39,11 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         'password', 'remember_token',
     ];
 
+    /**
+     * Rewrite field login with passport.
+     *
+     * @var array
+     */
     public function findForPassport($username)
     {
         return $this->where('email', $username)->orWhere('user_name', $username)->first();

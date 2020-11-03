@@ -2,7 +2,9 @@
 
 namespace GGPHP\User\Http\Requests;
 
-class ResetPasswordRequest extends BaseRequest
+use Illuminate\Validation\Rule;
+
+class UserUpdateRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,7 +24,14 @@ class ResetPasswordRequest extends BaseRequest
     public function rules()
     {
         return [
-            'email' => 'required|email|exists:users,email',
+            'email' => [
+                "email",
+                Rule::unique('users')->ignore($id),
+            ],
+            'user_name' => [
+                Rule::unique('users')->ignore($id),
+            ],
+            'password' => 'regex:/^.*(?=.*[A-Z])(?=.*[0-9])(?=.*[a-z])(?=.*[!$#%]).{6}$/',
         ];
     }
 }

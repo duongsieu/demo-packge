@@ -50,7 +50,7 @@ class RouteRegistrar
     {
         $this->router->group(['middleware' => []], function ($router) {
             \Route::post('login', 'AuthController@login')->name('login');
-            \Route::post('password/forgot/request', 'ForgotPasswordController@getResetToken');
+            \Route::post('password/forgot/request', 'AuthController@getResetToken');
             \Route::post('password/forgot/reset', 'ResetPasswordController@reset');
             \Route::post('sign-up', 'AuthController@signUp');
         });

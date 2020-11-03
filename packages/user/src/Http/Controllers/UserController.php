@@ -9,8 +9,6 @@ use GGPHP\User\Repositories\Contracts\UserRepository;
 use GGPHP\User\Traits\ResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Validation\Rule;
-use Validator;
 
 class UserController extends Controller
 {
@@ -56,48 +54,15 @@ class UserController extends Controller
      *
      * @return Response
      */
-    public function store(Request $request)
+    public function store(UserCreateRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'email|unique:users,email',
-            'user_name' => 'unique:users,user_name',
-            'name' => 'required|string',
-            'password' => [
-                "required",
-                'regex:/^.*(?=.*[A-Z])(?=.*[0-9])(?=.*[a-z].*[a-z].*[a-z])(?=.*[!$#@^&*.%]).{6}$/',
-            ],
-        ],
-            [
-                'password.regex' => 'Password must have 6 characters including capital letters, special characters, numbers',
-            ]
-        );
-
-        if ($validator->fails()) {
-            $error = $validator->errors()->toArray();
-            $result = [];
-            foreach ($error as $key => $value) {
-                $result[] = [
-                    "title" => "Validation Error.",
-                    "detail" => $value[0],
-                    "source" => [
-                        "pointer" => $key,
-                    ],
-                ];
-            }
-
-            return response()->json(([
-                "status" => 400,
-                "title" => "Validation Error.",
-                'errors' => $result,
-            ]), 400);
-        }
-
         $credentials = $request->all();
 
         if (!empty($credentials['password'])) {
             $credentials['password'] = bcrypt($credentials['password']);
         }
         $user = $this->userRepository->create($credentials);
+
         return $this->success($user, trans('lang-user::messages.auth.createSuccess'), ['code' => Response::HTTP_CREATED]);
     }
 
@@ -109,6 +74,7 @@ class UserController extends Controller
     public function show(Request $request, $id)
     {
         $user = $this->userRepository->find($id);
+
         return $this->success($user, trans('lang-user::messages.common.getInfoSuccess'));
     }
 
@@ -119,49 +85,15 @@ class UserController extends Controller
      *
      * @return Response
      */
-    public function update(Request $request, $id)
+    public function update(UserUpdateRequest $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => [
-                "email",
-                Rule::unique('users')->ignore($id),
-            ],
-            'user_name' => [
-                Rule::unique('users')->ignore($id),
-            ],
-            'password' => 'regex:/^.*(?=.*[A-Z])(?=.*[0-9])(?=.*[a-z])(?=.*[!$#%]).{6}$/',
-
-        ],
-            [
-                'password.regex' => 'Password must have 6 characters including capital letters, special characters, numbers',
-            ]
-        );
-
-        if ($validator->fails()) {
-            $error = $validator->errors()->toArray();
-            $result = [];
-            foreach ($error as $key => $value) {
-                $result[] = [
-                    "title" => "Validation Error.",
-                    "detail" => $value[0],
-                    "source" => [
-                        "pointer" => $key,
-                    ],
-                ];
-            }
-
-            return response()->json(([
-                "status" => 400,
-                "title" => "Validation Error.",
-                'errors' => $result,
-            ]), 400);
-        }
-
         $credentials = $request->all();
+
         if (!empty($credentials['password'])) {
             $credentials['password'] = bcrypt($credentials['password']);
         }
         $user = $this->userRepository->update($credentials, $id);
+
         return $this->success($user, trans('lang-user::messages.common.modifySuccess'));
     }
 

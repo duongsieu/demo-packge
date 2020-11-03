@@ -2,7 +2,7 @@
 
 namespace GGPHP\User\Http\Requests;
 
-class ResetPasswordRequest extends BaseRequest
+class ForgotPasswordRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,7 +22,9 @@ class ResetPasswordRequest extends BaseRequest
     public function rules()
     {
         return [
+            'token' => 'required',
             'email' => 'required|email|exists:users,email',
+            'password' => 'required|string',
         ];
     }
 }

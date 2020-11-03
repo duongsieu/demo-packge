@@ -2,25 +2,29 @@
 
 namespace GGPHP\User\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use Carbon\Carbon;
+use GGPHP\User\Http\Requests\ChangePasswordRequest;
+use GGPHP\User\Http\Requests\ResetPasswordRequest;
+use GGPHP\User\Http\Requests\UserSignUpRequest;
+use GGPHP\User\Mail\ResetPassword;
 use GGPHP\User\Models\User;
 use GGPHP\User\Repositories\Contracts\UserRepository;
 use GGPHP\User\Traits\ResponseTrait;
 use Hash;
+use Illuminate\Foundation\Auth\SendsPasswordResetEmails;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Passport\TokenRepository;
 use Lcobucci\JWT\Parser as JwtParser;
 use League\OAuth2\Server\AuthorizationServer;
+use Mail;
 use Psr\Http\Message\ServerRequestInterface;
-use Response;
-use Validator;
 use \Laravel\Passport\Http\Controllers\AccessTokenController as ATController;
 
 class AuthController extends ATController
 {
-    use ResponseTrait;
+    use SendsPasswordResetEmails, ResponseTrait;
 
     /**
      * @var UserRepository
@@ -68,40 +72,6 @@ class AuthController extends ATController
     {
         $attributes = $request->getParsedBody();
 
-        $validator = Validator::make($request->getParsedBody(), [
-            'username' => [
-                function ($attribute, $value, $fail) {
-                    $user = User::where('email', $value)->orWhere('user_name', $value)->first();
-                    if ($user) {
-                        return true;
-                    }
-                    return $fail('The selected is invalid.');
-                },
-            ],
-            'password' => 'required',
-        ]
-        );
-
-        if ($validator->fails()) {
-            $error = $validator->errors()->toArray();
-            $result = [];
-            foreach ($error as $key => $value) {
-                $result[] = [
-                    "title" => "Validation Error.",
-                    "detail" => $value[0],
-                    "source" => [
-                        "pointer" => $key,
-                    ],
-                ];
-            }
-
-            return response()->json(([
-                "status" => 400,
-                "title" => "Validation Error.",
-                'errors' => $result,
-            ]), 400);
-        }
-
         try {
             $username = $request->getParsedBody()['username'];
 
@@ -143,33 +113,8 @@ class AuthController extends ATController
      *
      * @return \Illuminate\Http\Response
      */
-    public function changePassword(Request $request)
+    public function changePassword(ChangePasswordRequest $request)
     {
-
-        $validator = Validator::make($request->all(), [
-            'password' => 'required|string|confirmed',
-        ]);
-
-        if ($validator->fails()) {
-            $error = $validator->errors()->toArray();
-            $result = [];
-            foreach ($error as $key => $value) {
-                $result[] = [
-                    "title" => "Validation Error.",
-                    "detail" => $value[0],
-                    "source" => [
-                        "pointer" => $key,
-                    ],
-                ];
-            }
-
-            return response()->json(([
-                "status" => 400,
-                "title" => "Validation Error.",
-                'errors' => $result,
-            ]), 400);
-        }
-
         $user = Auth::user();
 
         if (!Hash::check($request->current_password, $user->password)) {
@@ -200,50 +145,41 @@ class AuthController extends ATController
      *
      * @return Response
      */
-    public function signUp(Request $request)
+    public function signUp(UserSignUpRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'email|unique:users,email',
-            'user_name' => 'unique:users,user_name',
-            'name' => 'required|string',
-            'password' => [
-                "required",
-                'confirmed',
-                'regex:/^.*(?=.*[A-Z])(?=.*[0-9])(?=.*[a-z].*[a-z].*[a-z])(?=.*[!$#@^&*.%]).{6}$/',
-            ],
-        ],
-            [
-                'password.regex' => 'Password must have 6 characters including capital letters, special characters, numbers',
-            ]
-        );
-
-        if ($validator->fails()) {
-            $error = $validator->errors()->toArray();
-            $result = [];
-            foreach ($error as $key => $value) {
-                $result[] = [
-                    "title" => "Validation Error.",
-                    "detail" => $value[0],
-                    "source" => [
-                        "pointer" => $key,
-                    ],
-                ];
-            }
-
-            return response()->json(([
-                "status" => 400,
-                "title" => "Validation Error.",
-                'errors' => $result,
-            ]), 400);
-        }
-
         $credentials = $request->all();
 
         if (!empty($credentials['password'])) {
             $credentials['password'] = bcrypt($credentials['password']);
         }
+
         $user = $this->userRepository->create($credentials);
+
         return $this->success($user, trans('lang-user::messages.auth.createSuccess'), ['code' => Response::HTTP_CREATED]);
     }
 
+    /**
+     * @param ResetPasswordRequest $request
+     * @return \Illuminate\Http\Response
+     */
+    public function getResetToken(ResetPasswordRequest $request)
+    {
+        $this->userRepository->skipPresenter();
+        $email = $request->email;
+        $user = $this->userRepository->findByField('email', $email)->first();
+
+        // create reset password token
+        $token = $this->broker()->createToken($user);
+        // send mail
+        $email = $user->email;
+        $name = $user->name;
+        $domainClient = env('RESET_PASSWORD_URL', 'http://localhost/password/reset');
+        $urlClient = $domainClient . '/' . $token;
+        try {
+            Mail::to($email, $name)->send(new ResetPassword(compact('name', 'urlClient')));
+        } catch (\Exception $e) {
+            return $this->error(trans('lang::messages.auth.resetPasswordFail'), $e->getMessage(), config('constants.HTTP_STATUS_CODE.SERVER_ERROR'));
+        }
+        return $this->success([], trans('lang::messages.auth.sendLinkResetPasswordSuccess'), false);
+    }
 }

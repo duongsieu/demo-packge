@@ -13,14 +13,6 @@ use Laravel\Passport\Passport;
 
 class UserServiceProvider extends AuthServiceProvider
 {
-    // /**
-    //  * The policy mappings for the application.
-    //  *
-    //  * @var array
-    //  */
-    // protected $policies = [
-    //     'App\Model' => 'App\Policies\ModelPolicy',
-    // ];
 
     /**
      * Bootstrap services.
@@ -29,6 +21,12 @@ class UserServiceProvider extends AuthServiceProvider
      */
     public function boot(Filesystem $filesystem)
     {
+        // Custom exception
+        $this->app->bind(
+            Handler::class,
+            UserException::class
+        );
+
         if (function_exists('config_path')) { // function not available and 'publish' not relevant in Lumen
             $this->publishes([
                 __DIR__ . '/../config/user.php' => config_path('user.php'),
@@ -39,10 +37,12 @@ class UserServiceProvider extends AuthServiceProvider
             ], 'migrations');
         }
 
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/user_constant.php', 'constants'
+        );
+
         $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'view-users');
         $this->loadTranslationsFrom(__DIR__ . '/../../resources/lang', 'lang-user');
-
-        // $this->registerPolicies();
 
         // set auth config system
         $setDriver = Config::set('auth.guards.api.driver', 'passport');

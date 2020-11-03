@@ -30,13 +30,13 @@ class BaseTransformer extends TransformerAbstract
 
         $fillables = $model->getFillable();
 
-        if (method_exists($model, 'getDateTimeFields')) {
-            $fillables = array_merge($fillables, $model->getDateTimeFields());
-        }
         $fillableValues = Arr::only($model->toArray(), array_diff($fillables, $hiddens));
 
         return array_merge($fillableValues, $this->customAttributes($model), [
             'id' => (int) $model->id,
+            'created_at' => $model->created_at ? $model->created_at->toIso8601String() : null,
+            'updated_at' => $model->updated_at ? $model->updated_at->toIso8601String() : null,
+            'deleted_at' => $model->deleted_at ? $model->deleted_at->toIso8601String() : null,
         ]);
     }
 
